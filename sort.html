@@ -1,0 +1,223 @@
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Product Catalog</title>
+  <link rel="stylesheet" href="style.css"/>
+  <style>/* Layout ---------------------------------------------------- */
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background:#f6f7fb;
+}
+
+header {
+  background:#fff;
+  box-shadow:0 1px 4px rgba(0,0,0,.06);
+  padding:1rem 2rem;
+}
+
+h1 { margin:0 0 .5rem; font-size:1.6rem; }
+
+.controls {
+  display:flex;
+  flex-wrap:wrap;
+  gap:.75rem 1.25rem;
+  align-items:center;
+  font-size:.9rem;
+}
+
+.controls label { font-weight:500; }
+
+.controls select,
+.controls input[type="number"]{
+  padding:.35rem .5rem;
+  border:1px solid #ccc;
+  border-radius:6px;
+  font-size:.9rem;
+  min-width:100px;
+}
+
+.controls button{
+  padding:.45rem 1rem;
+  border:none;
+  background:#4caf50;
+  color:#fff;
+  border-radius:6px;
+  cursor:pointer;
+}
+
+.controls button:hover{background:#43a047;}
+
+/* Grid ------------------------------------------------------ */
+.grid{
+  padding:2rem;
+  display:grid;
+  gap:1.25rem;
+  grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
+}
+
+/* Card ------------------------------------------------------ */
+.card{
+  background:#fff;
+  border-radius:12px;
+  box-shadow:0 2px 6px rgba(0,0,0,.08);
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+  transition:transform .15s ease;
+}
+.card:hover{transform:translateY(-4px);}
+
+.card img{
+  width:100%;
+  height:160px;
+  object-fit:cover;
+}
+
+.card .title{
+  margin:.75rem 1rem 0;
+  font-size:1rem;
+}
+
+.card .price{
+  margin:.25rem 1rem 1rem;
+  font-weight:600;
+  color:#4caf50;
+}
+</style>
+</head>
+<body>
+  <header>
+    <h1>🛍️ Product Catalog</h1>
+    <div class="controls">
+      <!-- Category filter -->
+      <label>
+        Category 
+        <select id="categoryFilter">
+          <option value="all">All</option>
+        </select>
+      </label>
+
+      <!-- Price filter -->
+      <label> Min ₹<input type="number" id="minPrice" placeholder="0"/></label>
+      <label>– Max ₹<input type="number" id="maxPrice" placeholder="9999"/></label>
+      <button id="priceApply">Apply</button>
+
+      <!-- Sort selector -->
+      <label>
+        Sort 
+        <select id="sortBy">
+          <option value="default">Default</option>
+          <option value="price-asc">Price: Low → High</option>
+          <option value="price-desc">Price: High → Low</option>
+          <option value="name-asc">Name: A → Z</option>
+          <option value="name-desc">Name: Z → A</option>
+        </select>
+      </label>
+    </div>
+  </header>
+
+  <main>
+    <div id="productGrid" class="grid"></div>
+  </main>
+
+  <template id="cardTemplate">
+    <div class="card">
+      <img/>
+      <h3 class="title"></h3>
+      <p class="price"></p>
+    </div>
+  </template>
+
+  <script >
+    /* ---------- 1. Demo product data ---------- */
+const products = [
+  { id: 1, name: "Wireless Mouse",   price: 499,  category: "Electronics", img: "https://www.bhphotovideo.com/images/images2500x2500/logitech_910003636_m185_wireless_mouse_blue_black_1433569.jpg" },
+  { id: 2, name: "Bluetooth Speaker",price: 1299, category: "Electronics", img: "https://th.bing.com/th/id/OIP.ME7w8biTCoGCGAD20L1S6wHaHX?w=181&h=180&c=7&r=0&o=5&pid=1.7" },
+  { id: 3, name: "Coffee Mug",       price: 199,  category: "Home",        img: "https://www.fnp.com//images/pr/l/v20230417174923/universe-in-my-coffee-personalised-magic-mug_1.jpg" },
+  { id: 4, name: "Notebook",         price: 99,   category: "Stationery",  img: "https://th.bing.com/th/id/R.831fa989a81056308f57aea5f3c2f28e?rik=Ni%2fKrW8dyEh%2ffw&riu=http%3a%2f%2fpngimg.com%2fuploads%2fnotebook%2fnotebook_PNG19225.png&ehk=a9kX%2bwFYesg2KDYf8Vb58TNrrjwrL%2bpvcS%2brPrZtfew%3d&risl=&pid=ImgRaw&r=0" },
+  { id: 5, name: "Desk Lamp",        price: 899,  category: "Home",        img: "https://www.ikea.com/in/en/images/products/tertial-work-lamp-light-blue__0957547_pe822319_s5.jpg?f=s" },
+  { id: 6, name: "Gaming Keyboard",  price: 2499, category: "Electronics", img: "https://images-na.ssl-images-amazon.com/images/I/71oPeDIUPuL._AC_SL1500_.jpg" },
+  { id: 7, name: "Running Shoes",    price: 1999, category: "Fashion",     img: "https://media.landmarkshops.in/cdn-cgi/image/h=831,w=615,q=85,fit=cover/max-new/1000013611198-Grey-DARKGREY-1000013611198_01-2100.jpg" },
+  { id: 8, name: "T-Shirt",          price: 499,  category: "Fashion",     img: "https://media.landmarkshops.in/cdn-cgi/image/h=831,w=615,q=85,fit=cover/max-new/1000013915694-Purple-PURPLE-1000013915694_01-2100.jpg" }
+];
+
+
+/* ---------- 2. Cached DOM refs ---------- */
+const grid          = document.getElementById("productGrid");
+const tmpl          = document.getElementById("cardTemplate");
+const categorySel   = document.getElementById("categoryFilter");
+const minPriceInput = document.getElementById("minPrice");
+const maxPriceInput = document.getElementById("maxPrice");
+const priceApplyBtn = document.getElementById("priceApply");
+const sortSel       = document.getElementById("sortBy");
+
+/* ---------- 3. Populate category dropdown ---------- */
+const categories = [...new Set(products.map(p => p.category))];
+categories.forEach(cat => {
+  const opt = document.createElement("option");
+  opt.value = cat;
+  opt.textContent = cat;
+  categorySel.appendChild(opt);
+});
+
+/* ---------- 4. Event Listeners ---------- */
+categorySel.addEventListener("change", render);
+sortSel.addEventListener("change", render);
+priceApplyBtn.addEventListener("click", render);
+
+/* ---------- 5. Render pipeline ---------- */
+function render() {
+  const filtered  = applyFilters(products);
+  const sorted    = applySort(filtered);
+  paint(sorted);
+}
+
+function applyFilters(list) {
+  const cat   = categorySel.value;
+  const min   = parseFloat(minPriceInput.value) || 0;
+  const max   = parseFloat(maxPriceInput.value) || Infinity;
+
+  return list.filter(p =>
+    (cat === "all" || p.category === cat) &&
+    p.price >= min && p.price <= max
+  );
+}
+
+function applySort(list) {
+  const mode = sortSel.value;
+  const arr  = [...list]; // shallow copy
+
+  switch (mode) {
+    case "price-asc":  arr.sort((a,b)=>a.price-b.price); break;
+    case "price-desc": arr.sort((a,b)=>b.price-a.price); break;
+    case "name-asc":   arr.sort((a,b)=>a.name.localeCompare(b.name)); break;
+    case "name-desc":  arr.sort((a,b)=>b.name.localeCompare(a.name)); break;
+    // default = insertion order
+  }
+  return arr;
+}
+
+function paint(list) {
+  grid.innerHTML = "";
+  list.forEach(p => {
+    const card = tmpl.content.cloneNode(true);
+    card.querySelector("img").src = p.img;
+    card.querySelector(".title").textContent = p.name;
+    card.querySelector(".price").textContent = "₹" + p.price.toLocaleString();
+    grid.appendChild(card);
+  });
+
+  if (list.length === 0) {
+    grid.innerHTML = "<p style='grid-column:1 / -1; text-align:center;'>No products match your filters.</p>";
+  }
+}
+
+/* ---------- 6. Kick things off ---------- */
+render();
+
+  </script>
+</body>
+</html>
